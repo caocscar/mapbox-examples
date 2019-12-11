@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset='utf-8' />
+  <title>Load Mapbox Tileset</title>
+  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+  <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v1.5.0/mapbox-gl.js'></script>
+  <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.5.0/mapbox-gl.css' rel='stylesheet' />
+  <script src='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.4.2/mapbox-gl-geocoder.min.js'></script>
+  <link rel='stylesheet' href='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.4.2/mapbox-gl-geocoder.css'>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/geojson/0.5.0/geojson.min.js"></script>
+  <style>
+    body { 
+      margin:0;
+      padding:0;
+    }
+    #map { 
+      position:absolute;
+      top:0;
+      bottom:0;
+      width:100%;
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+    let data = [
+    {'days':10, 'lng':-83.487, 'lat':43.538},
+    {'days':0, 'lng':-84.502, 'lat':44.528},
+    {'days':5, 'lng':-85.511, 'lat':45.530},
+  ]
+  data = GeoJSON.parse(data, {Point:['lat','lng']})
+  const dummy = {"type": "Feature",
+  "geometry": {
+     "type": "Point",
+     "coordinates": [0, 0]
+  },
+ }
+mapboxgl.accessToken = 'pk.eyJ1IjoiY2FvYSIsImEiOiJjazFncHJqZzYwMXkyM2hxcWp6d2hucTk1In0.5Z7Nmggo79voVuNvU2i7sQ';
+let map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/caoa/ck1gtpyew0t4n1cmx3ml3t9ri', // my ugly style
+    center: [-85.8, 44.53],
+    zoom: 6.25,
+    attributionControl: false,
+    maxBounds: [[-100,36],[-75,52]],
+})
+map.addControl(new MapboxGeocoder({
+    accessToken: mapboxgl.accessToken,
+    autocomplete: true,
+    countries: 'us',
+    bbox: [-90.4,41.7,-82.4,48.2],
+    marker: false,
+}), 'top-left');
+map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+map.addControl(new mapboxgl.AttributionControl({compact: true}));
+map.loadImage('green_circle.png', function(error, image) {
+  if (error) throw error;
+  map.addImage('green', image);
+})
+const tilesetSource = {
+    type: 'vector',
+    url: 'mapbox://caoa.ck37j8ijy04qg2nlm4agzd8nx-2urfk', 
+}
+const tileset = 'mi_places'
+let placeName = 'Kalamazoo'
+let placeType = 'city'
+const source = {"type": "geojson", "data": dummy}
+map.on('load', () => { // load from tileset directly
+    const geoFilter = geojsonFilter(placeName,placeType)
+    map.addLayer({
+        "id": "citycounty",
+        "type": "fill",
+        "source": tilesetSource,
+        "source-layer": tileset,
+        "paint": {
+            "fill-color": "#adcfe6",
+            "fill-opacity": 0.3,
+        },
+        "filter": geoFilter,
+    });
+    // Rationale for adding another layer just for the border
+    // https://gis.stackexchange.com/questions/299860/set-border-width-and-color-in-mapbox-gl
+    map.addLayer({
+        "id": "citycounty-border",
+        "type": "line",
+        "source": tilesetSource,
+        "source-layer": tileset,
+        "paint": {
+            "line-width": 2,
+            "line-color": "#72add4",
+        },
+        "filter": geoFilter,
+    });
+    map.addSource('Forrest', source)
+    map.addLayer({
+      "id": "Forrest",
+      "type": "symbol",
+      "source": 'Forrest',
+      "layout": {
+        "icon-image": "green",
+        "icon-size": 1,
+        "icon-allow-overlap": true,
+      },
+      "paint": { // https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions-ramps-scales-curves
+        'icon-opacity': ['interpolate', 
+            ['linear'], 
+            ['get','days'], 
+            0,0.3, // <min input>,<min output> analogous to d3.domain.range
+            10,1,   // <max input>,<max output>
+        ],
+      },
+    });
+});
+
+map.on('click', () => {
+    const geoFilter = geojsonFilter()
+    map.setFilter('citycounty', geoFilter)
+    map.setFilter('citycounty-border', geoFilter)
+    map.getSource('Forrest').setData(data)
+})
+
+function geojsonFilter(placeName=chooseRandomPlace(), placeType='county') {
+    // https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions
+    const filter1 = ['==', ['get','NAME'], placeName]
+    const filter2 = ['==', ['get','TYPE'], placeType]
+    return ['all', filter1, filter2]
+} 
+
+function chooseRandomPlace() {
+    const places = ['Muskegon','Saginaw','Kalamazoo','Ionia','Luce','Bay',
+                    'Iron','Alger','Cass','Iosco','Kent','Delta','Wayne']
+    return places[Math.floor(Math.random()*places.length)]
+}
+
+</script>
+</body>

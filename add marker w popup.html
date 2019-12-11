@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset='utf-8' />
+  <title>Add Marker</title>
+  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+  <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v1.5.0/mapbox-gl.js'></script>
+  <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.5.0/mapbox-gl.css' rel='stylesheet' />
+  <script src='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.4.2/mapbox-gl-geocoder.min.js'></script>
+  <link rel='stylesheet' href='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.4.2/mapbox-gl-geocoder.css' type='text/css' />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/geojson/0.5.0/geojson.min.js"></script>
+  <style>
+    body { margin:0; padding:0; }
+    #map { position:absolute; top:0; bottom:0; width:100%; }
+    .marker {
+      cursor: pointer;
+      border-radius: 50%;
+      background-image: url('green_circle.png');
+      width: 32px;
+      height: 32px;
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+const data = [
+  {'days':10, 'lng':-113.487, 'lat':53.538},
+  {'days':0, 'lng':-113.502, 'lat':53.528},
+  {'days':5, 'lng':-113.511, 'lat':53.530},
+]
+const geojson = GeoJSON.parse(data, {Point:['lat','lng']})
+mapboxgl.accessToken = 'pk.eyJ1IjoiY2FvYSIsImEiOiJjazFncHJqZzYwMXkyM2hxcWp6d2hucTk1In0.5Z7Nmggo79voVuNvU2i7sQ';
+let map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/streets-v11',
+    center: [-113.5, 53.53],
+    zoom: 14,
+    attributionControl: false,
+})
+map.addControl(new MapboxGeocoder({
+    accessToken: mapboxgl.accessToken,
+    autocomplete: true,
+    mapboxgl: mapboxgl,
+}), 'top-left');
+map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+map.addControl(new mapboxgl.AttributionControl({compact: true}));
+
+// add markers to map
+markers = []
+geojson.features.map((feature,i) => {
+  // create a DOM element for the marker
+  let el = document.createElement('div');
+  el.className = 'marker';
+  el.style.opacity = i%2 == 0 ? 1 : 0.5
+
+  // add marker to map
+  const popup = new mapboxgl.Popup({offset: 10})
+    .setLngLat(feature.geometry.coordinates)
+    .setHTML('this is my kitten')
+
+  let marker = new mapboxgl.Marker(el)
+    .setLngLat(feature.geometry.coordinates)
+    .setPopup(popup)
+    .addTo(map)
+
+  markers.push(marker)
+});
+
+// remove markers on right-click
+map.on('contextmenu', () => markers.map(d => d.remove()))
+</script>
+</body>

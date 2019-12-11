@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset='utf-8' />
+  <title>Heatmap Layer</title>
+  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+  <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v1.5.0/mapbox-gl.js'></script>
+  <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.5.0/mapbox-gl.css' rel='stylesheet' />
+  <script src='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.0.9/mapbox-gl-draw.js'></script>
+  <link rel='stylesheet' href='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.0.9/mapbox-gl-draw.css' type='text/css'/>
+  <script src="https://d3js.org/d3-array.v2.min.js"></script>
+  <style>
+    body { 
+      margin:0;
+      padding:0;
+    }
+    #map { 
+      position:absolute;
+      top:0;
+      bottom:0;
+      width:100%;
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+mapboxgl.accessToken = 'pk.eyJ1IjoiY2FvYSIsImEiOiJjazFncHJqZzYwMXkyM2hxcWp6d2hucTk1In0.5Z7Nmggo79voVuNvU2i7sQ';
+let map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/dark-v10',
+    center: [-83.735, 42.275],
+    zoom: 12.1,
+    minZoom: 4,
+})
+map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+var draw = new MapboxDraw({
+    displayControlsDefault: false,
+    controls: {
+        polygon: true,
+        trash: true
+    }
+});
+map.addControl(draw);
+map.on('draw.create', getBBox);
+map.on('draw.update', getBBox);
+
+function getBBox(e) {
+    const data = draw.getAll();
+    const coords = data.features[0].geometry.coordinates[0];
+    const x = d3.extent(coords, d => d[0])
+    const y = d3.extent(coords, d => d[1])
+    const n = 5
+    let msg = 'Bounding box is\n'
+    msg += `x = [${x[0].toFixed(n)}, ${x[1].toFixed(n)}]\n`
+    msg += `y = [${y[0].toFixed(n)}, ${y[1].toFixed(n)}]`
+    alert(msg)
+}
+
+</script>
+</body>

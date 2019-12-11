@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset='utf-8' />
+  <title>Add Image</title>
+  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+  <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v1.5.0/mapbox-gl.js'></script>
+  <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.5.0/mapbox-gl.css' rel='stylesheet' />
+  <script src='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.4.2/mapbox-gl-geocoder.min.js'></script>
+  <link rel='stylesheet' href='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.4.2/mapbox-gl-geocoder.css' type='text/css' />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/geojson/0.5.0/geojson.min.js"></script>
+  <style>
+    body { margin:0; padding:0; }
+    #map { position:absolute; top:0; bottom:0; width:100%; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+let data = [
+  {'days':10, 'lng':-113.487, 'lat':53.538},
+  {'days':0, 'lng':-113.502, 'lat':53.528},
+  {'days':5, 'lng':-113.511, 'lat':53.530},
+]
+data = GeoJSON.parse(data, {Point:['lat','lng']})
+let data2 = [
+  {'days':1, 'lng':-113.484, 'lat':53.535},
+  {'days':4, 'lng':-113.500, 'lat':53.524},
+  {'days':10, 'lng':-113.515, 'lat':53.533},
+]
+data2 = GeoJSON.parse(data2, {Point:['lat','lng']})
+const dummy = {"type": "Feature",
+               "geometry": {
+                  "type": "Point",
+                  "coordinates": [0, 0]
+               },
+              }
+mapboxgl.accessToken = 'pk.eyJ1IjoiY2FvYSIsImEiOiJjazFncHJqZzYwMXkyM2hxcWp6d2hucTk1In0.5Z7Nmggo79voVuNvU2i7sQ';
+let map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/streets-v11',
+    center: [-113.5, 53.53],
+    zoom: 14,
+    attributionControl: false,
+})
+map.addControl(new MapboxGeocoder({
+    accessToken: mapboxgl.accessToken,
+    autocomplete: true,
+    mapboxgl: mapboxgl,
+}), 'top-left');
+map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+map.addControl(new mapboxgl.AttributionControl({compact: true}));
+
+map.loadImage('green_circle.png', function(error, image) {
+    if (error) throw error;
+    map.addImage('green', image);
+})
+src = {"type": "geojson", "data": dummy}
+// run python server to avoid being blocked by CORS policy
+map.on('load', function() {
+    map.addSource('Forrest', src)
+    map.addLayer({
+      "id": "Forrest",
+      "type": "symbol",
+      "source": 'Forrest',
+      "layout": {
+        "icon-image": "green",
+        "icon-size": 1,
+        "icon-allow-overlap": true,
+      },
+      "paint": { // https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions-ramps-scales-curves
+        'icon-opacity': ['interpolate', 
+            ['linear'], 
+            ['get','days'], 
+            0,0.3, // <min input>,<min output> analogous to d3.domain.range
+            10,1,   // <max input>,<max output>
+        ],
+      },
+    });
+});
+
+
+// when a click event occurs on a feature in the points layer, open a popup
+map.on('click', 'Forrest', function(e) {
+  new mapboxgl.Popup({offset: 4})
+    .setLngLat(e.features[0].geometry.coordinates)
+    .setHTML('this is my popup')
+    .addTo(map);
+});
+// remove points on right-click
+let flag = true
+map.on('contextmenu', function() {
+  flag = !flag
+  map.getSource('Forrest').setData(flag ? data : data2);
+})
+
+</script>
+</body>

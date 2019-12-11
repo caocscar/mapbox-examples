@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset='utf-8' />
+  <title>Heatmap Layer</title>
+  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+  <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v1.5.0/mapbox-gl.js'></script>
+  <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.5.0/mapbox-gl.css' rel='stylesheet' />
+  <style>
+    body { 
+      margin:0;
+      padding:0;
+    }
+    #map { 
+      position:absolute;
+      top:0;
+      bottom:0;
+      width:100%;
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+mapboxgl.accessToken = 'pk.eyJ1IjoiY2FvYSIsImEiOiJjazFncHJqZzYwMXkyM2hxcWp6d2hucTk1In0.5Z7Nmggo79voVuNvU2i7sQ';
+let map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/dark-v10',
+    center: [-83.735, 42.275],
+    zoom: 12.1,
+    minZoom: 4,
+})
+map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+const tilesetSource = {
+    type: 'vector',
+    url: 'mapbox://caoa.1z7vqc8u',
+}
+const tileset = 'gps_wgts6-2iqigx'
+
+map.on('load', () => { // load from tileset directly
+    const minCount = 3,
+          maxCount = 841,
+          base = 2,
+          maxZoomHeat = 17;
+    map.addLayer({
+        "id": "ped-heat",
+        "type": "heatmap",
+        "source": tilesetSource,
+        "source-layer": tileset,
+        "paint": { // https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions-ramps-scales-curves
+            // https://docs.mapbox.com/mapbox-gl-js/style-spec/#layers-heatmap
+            // Adjust the heatmap radius by zoom level
+            "heatmap-radius": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                10, 10, // <min input>,<min output>
+                maxZoomHeat, 30,  // <max input>,<max output>
+            ],
+            // Increase the heatmap weight based on frequency and weight
+            "heatmap-weight": [
+                "interpolate",
+                ["exponential", base],
+                ["get", "Time"],
+                3, 0.01, 
+                maxCount, 7,
+            ],
+            // Increase the heatmap color weight by zoom level
+            // heatmap-intensity is a multiplier on top of heatmap-weight
+            "heatmap-intensity": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                10, 1,
+                maxZoomHeat, 10,
+            ],
+            // Color ramp for heatmap.  Domain is 0 (low) to 1 (high).
+            // Begin color ramp at 0-stop with a 0-transparancy color
+            // to create a blur-like effect.
+            "heatmap-color": [
+                "interpolate",
+                ["linear"],
+                ["heatmap-density"],
+                0, "rgba(33,102,172,0)",
+                0.05, "rgb(103,169,207)",
+                0.3, "rgb(209,229,240)",
+                0.5, "rgb(253,219,199)",
+                0.7, "rgb(239,138,98)",
+                1, "rgb(178,24,43)",
+            ],
+            // Transition from heatmap to circle layer by zoom level
+            "heatmap-opacity": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                maxZoomHeat, 1,
+                maxZoomHeat+1, 0,
+            ],
+        }
+    });
+
+    map.addLayer({
+        "id": "ped-pt",
+        "type": "circle",
+        "source": tilesetSource,
+        "source-layer": tileset,
+        "minzoom": 17,
+        "paint": {
+            "circle-stroke-color": "white",
+            "circle-stroke-width": 1,
+            // Size circle radius by weight and zoom level
+            "circle-radius": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                17, [
+                    "interpolate",
+                    ["exponential", base],
+                    ["get", "Time"],
+                    minCount, 1,
+                    maxCount, 4,
+                ],
+                20, [
+                    "interpolate",
+                    ["exponential", base],
+                    ["get", "Time"],
+                    minCount, 4,
+                    maxCount, 16,
+                    ]
+            ],
+            // Color circle by weight
+            "circle-color": [
+                "interpolate",
+                ["exponential", base],
+                ["get", "Time"],
+                minCount, "#0000ff",
+                maxCount, "#ff0000",
+            ],
+            // Transition from heatmap to circle layer by zoom level
+            "circle-opacity": [
+                "interpolate",
+                ["linear"],
+                ["zoom"],
+                maxZoomHeat, 0,
+                maxZoomHeat+1, 1,
+            ]
+        }
+    });
+});
+
+</script>
+</body>
