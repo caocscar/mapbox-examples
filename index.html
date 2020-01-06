@@ -60,13 +60,15 @@ function getBBox(e) {
 
 const tilesetSource = {
     type: 'vector',
-    url: 'mapbox://caoa.1z7vqc8u',
+    url: 'mapbox://caoa.c5grsewz',
 }
-const tileset = 'gps_wgts6-2iqigx'
+const tileset = 'gps4_rate-as3oa4'
 
 map.on('load', () => { // load from tileset directly
     const minCount = 3,
           maxCount = 841,
+          minRate = 0.01,
+          maxRate = 1,
           base = 2,
           maxZoomHeat = 17;
     map.addLayer({
@@ -81,16 +83,16 @@ map.on('load', () => { // load from tileset directly
                 "interpolate",
                 ["linear"],
                 ["zoom"],
-                10, 10, // <min input>,<min output>
+                10, 8, // <min input>,<min output>
                 maxZoomHeat, 30,  // <max input>,<max output>
             ],
             // Increase the heatmap weight based on frequency and weight
             "heatmap-weight": [
                 "interpolate",
-                ["exponential", base],
-                ["get", "Time"],
-                3, 0.01, 
-                maxCount, 7,
+                ["linear"],
+                ["get", "rate"],
+                minRate, 0.01, 
+                maxRate, 1.5,
             ],
             // Increase the heatmap color weight by zoom level
             // heatmap-intensity is a multiplier on top of heatmap-weight
@@ -99,7 +101,7 @@ map.on('load', () => { // load from tileset directly
                 ["linear"],
                 ["zoom"],
                 10, 1,
-                maxZoomHeat, 10,
+                maxZoomHeat, 2,
             ],
             // Color ramp for heatmap.  Domain is 0 (low) to 1 (high).
             // Begin color ramp at 0-stop with a 0-transparancy color
@@ -123,7 +125,8 @@ map.on('load', () => { // load from tileset directly
                 maxZoomHeat, 1,
                 maxZoomHeat+1, 0,
             ],
-        }
+        },
+        "filter":  ['<', ['get','rate'], 1],
     });
 
     map.addLayer({
@@ -144,15 +147,15 @@ map.on('load', () => { // load from tileset directly
                     "interpolate",
                     ["exponential", base],
                     ["get", "Time"],
-                    minCount, 1,
-                    maxCount, 4,
+                    minRate, 1,
+                    maxRate, 4,
                 ],
                 20, [
                     "interpolate",
                     ["exponential", base],
                     ["get", "Time"],
-                    minCount, 4,
-                    maxCount, 16,
+                    minRate, 4,
+                    maxRate, 16,
                     ]
             ],
             // Color circle by weight
@@ -160,8 +163,8 @@ map.on('load', () => { // load from tileset directly
                 "interpolate",
                 ["exponential", base],
                 ["get", "Time"],
-                minCount, "#0000ff",
-                maxCount, "#ff0000",
+                minRate, "#0000ff",
+                maxRate, "#ff0000",
             ],
             // Transition from heatmap to circle layer by zoom level
             "circle-opacity": [
