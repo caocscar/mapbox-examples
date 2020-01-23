@@ -1,118 +1,97 @@
-// Globals
-let gmap = null;
-let Pano = null;
-let map = null;
-let marker = null;
-let in_sv = false;
-let center = [-83.703, 42.298];
-let sv_mark = null; // button element
-let sv_mode = null; // button element
+let marker = null,
+    markerButton = d3.select('#svMarker').on('click', toggleMarker),
+    svButton = d3.select('#svEnterExit').on('click', toggleStreetView);
 
-// Map API initilization //////////////////////////////////////////////////////
+// Mapbox functions
 function initMapbox() {
 	mapboxgl.accessToken = 'pk.eyJ1IjoiY2FvYSIsImEiOiJjazFncHJqZzYwMXkyM2hxcWp6d2hucTk1In0.5Z7Nmggo79voVuNvU2i7sQ';
 	map = new mapboxgl.Map({
 		container: 'mapbox',
 		style: 'mapbox://styles/mapbox/streets-v11',
-		center: center,
-		zoom: 10,
+		center: [-83.743, 42.278],
+		zoom: 14.5,
 		attributionControl: false,
-		maxBounds: [[-84,42],[-82.5,43]],
-		maxPitch: 0,
 	})
 	map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 	map.addControl(new mapboxgl.AttributionControl({compact: true}));
-	map.on('click', setMarker);
+	map.on('click', updateMarker);
+}
+
+function updateMarker(e) {
+	if (marker) {
+    marker.setLngLat(e.lngLat)
+  } else {
+    addMarker(e)
+    markerButton.text("Remove Marker")
+    svButton.property('disabled', false)
+  }
+  updateCoords();
 }
 
 function updateCoords() {
 	const lnglat = marker.getLngLat();
-	center = [lnglat.lng, lnglat.lat];
+  streetView.setPosition({lng: lnglat.lng, lat: lnglat.lat});
 }
-function setMarker(e) {
-	if (marker) {
-		marker.setLngLat(e.lngLat);
-	}
-	else {
-		marker = new mapboxgl.Marker({draggable: true});
-		if ('lngLat' in e) {
-			marker.setLngLat(e.lngLat);
-		} else {
-			marker.setLngLat(map.getCenter());
-		}
-		marker.addTo(map);
-		marker.on('dragend', updateCoords);
-	}
-	updateCoords();
-	sv_mark.innerText = "Remove Marker";
-	sv_mode.disabled = false;
+
+function addMarker(e) {
+  marker = new mapboxgl.Marker({draggable: true});
+  marker.setLngLat(e ? e.lngLat : map.getCenter());
+  marker.addTo(map);
+  marker.on('dragend', updateCoords);
 }
-function removeMarker(e) {
+
+function removeMarker() {
 	marker.remove();
 	marker = null;
-	sv_mark.innerText = "Add Marker";
-	sv_mode.disabled = true;
-}
-function toggleMarker(e) {
-	marker ? removeMarker(e) : setMarker(e);
-	e.preventDefault();
+	markerButton.text("Add Marker");
+  svButton.property('disabled', true);
 }
 
+function toggleMarker() {
+	marker ? removeMarker() : updateMarker();
+}
 
-
-
-// GMaps street view functions ////////////////////////////////////////////////
-function initGMaps() {
-    CMap = new google.maps.Map(document.getElementById('map'), {
-        center: { lng: center[0], lat: center[1]  },
-        zoom: 8,
-        minZoom: 6,
-        streetViewControl: false,
-        scaleControl: true,
-        clickableIcons: false,
-        fullscreenControl: false
+// Google Maps street view functions
+function initGoogleMap() {
+  gmap = new google.maps.Map(d3.select('#gmap').node(), {
+    center: map.getCenter(),
+    zoom: map.getZoom(),
 	});
 }
+
+function initStreetView() {
+  streetView = new google.maps.StreetViewPanorama(d3.select('#gmap').node(), {
+    position: map.getCenter(),
+    pov: { heading: 0, pitch: 0 }, // facing north
+    fullscreenControl: false,
+    visible: false,
+  });
+  gmap.setStreetView(streetView);
+}
+
 function enterStreetView() {
-	map.getContainer().style.visibility = 'hidden';
-	initGMaps();
-    Pano = new google.maps.StreetViewPanorama(
-        document.getElementById('map'), {
-            position: { lng: center[0], lat: center[1]  },
-            pov: { heading: 0, pitch: 10 },
-            fullscreenControl: false
-        }
-    );
-    CMap.setStreetView(Pano);
+  streetView.setVisible(true)
+  map.getContainer().style.visibility = 'hidden';  
+  markerButton.property('disabled', true)
+  svButton.text("Exit Street View");
 }
 
 function exitStreetView() {
-	Pano.setVisible(false);
-	CMap.getDiv().innerHTML = '';
-	CMap.getDiv().setAttribute("style", "");
-	map.getContainer().style.visibility = 'visible';
+	map.getContainer().style.visibility = 'visible'
+	streetView.setVisible(false)
+  markerButton.property('disabled', false)
+  svButton.text("Enter Street View");
 }
 
-function toggleStreetView(e) {
-	if (in_sv) {
-		exitStreetView(e);
-		sv_mark.disabled = false;
-		sv_mode.innerText = "Enter Street View";
-		in_sv = false;
-	} else {
-		enterStreetView(e);
-		sv_mark.disabled = true;
-		sv_mode.innerText = "Leave Street View";
-		in_sv = true;
-	}
-	e.preventDefault();
+function toggleStreetView() {
+	markerButton.property('disabled') ? exitStreetView() : enterStreetView()
 }
 
-// Page initialization ////////////////////////////////////////////////////////
-document.addEventListener("DOMContentLoaded", function(event) {
-	sv_mark = document.getElementById("sv_mark");
-	sv_mode = document.getElementById("sv_mode");
-	initMapbox();
-	sv_mode.addEventListener("click", toggleStreetView);
-	sv_mark.addEventListener("click", toggleMarker);
-});
+function initMap() {
+  initMapbox();
+	initGoogleMap();
+  initStreetView();
+}
+
+initMap()
+
