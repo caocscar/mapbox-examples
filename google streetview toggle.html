@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset='utf-8' />
+	<title>Mapbox w/ GMaps Streetview</title>
+	<meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+
+	<script src='https://api.tiles.mapbox.com/mapbox-gl-js/v1.6.1/mapbox-gl.js'></script>
+	<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAo2s-JYgSMEZUZHckBnLJTAYVv-sqdXFc"></script>
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+  <script src="google streetview.js"></script>
+
+	<style>
+		@import url("https://api.tiles.mapbox.com/mapbox-gl-js/v1.6.1/mapbox-gl.css");
+		.mapcontainer {
+			width: 600px; height: 600px;
+		}
+		.mapcontainer #mapbox {
+			position: absolute;
+			top: 0; left: 0;
+			width: 600px; height: 600px;
+		}
+		.mapcontainer #map {
+			position: absolute;
+			top: 0; left: 0;
+			width: 600px; height: 600px;
+		}
+	</style>
+</head>
+<body>
+	<div class="mapcontainer">
+		<div id="map"></div> <!-- street view -->
+		<div id="mapbox"></div> <!-- actual maps -->
+	</div>
+	<button id="sv_mark">Add marker</button>
+	<button id="sv_mode" disabled>Enter Street View</button>
+</body>
+</html>
