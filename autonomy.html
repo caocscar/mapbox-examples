@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset='utf-8' />
+  <title>Autonomy Map</title>
+  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+  <!-- Mapbox GL JS-->
+  <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v2.1.0/mapbox-gl.js'></script>
+  <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v2.1.0/mapbox-gl.css' rel='stylesheet' />
+  <!-- GeoJSON -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/geojson/0.5.0/geojson.min.js"></script>
+  <!-- d3 utilities -->
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+  <script src="https://d3js.org/d3-array.v2.min.js"></script>
+
+  <style>
+    body { margin:0; padding:0; }
+    #map {
+        position: absolute;
+        top: 50px; 
+        left: 50px; 
+        width: 95%;
+        height: 800px;
+    }
+    .mapboxgl-popup-content {
+        background: #fff;
+        opacity: 0.85;
+    }
+    .map-overlay {
+        /* background-color: #eee; */
+        /* opacity: 0.85; */
+        position: absolute;
+        width: 100%;
+        top: 50px;
+        left: 50px;
+        padding: 10px;
+        /* border: 2px black solid; */
+    }
+    .legend-headway-title, .legend-headway-text {
+        font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<div class="map-overlay"></div>
+<script>
+
+const colorScale = d3.scaleThreshold()
+        .domain([0.1, 0.5, 0.6, 0.7, 0.8])
+        .range(['black', '#c7e9c0','#a1d99b','#74c476','#31a354','#006d2c'])
+        //.range(['black', '#dadaeb','#bcbddc','#9e9ac8','#756bb1','#54278f'])
+const grandrapidsTilesetSrc = {
+    type: 'vector',
+    url: 'mapbox://sdi-mapbox.ckkygbuz10pk020mncel63szs-34dmy',
+}
+const grandrapidsLayer = 'GrandRapidsRoute'
+
+async function getData() {
+    data = await d3.csv('http://dashboard-api.sandbox.maymobility.com/autonomy?start_date=2021-01-01', d3.autoType);
+    data = d3.index(data, d => d.segment);
+}
+
+function initMap() {
+    getData();
+    mapboxgl.accessToken = 'pk.eyJ1Ijoic2RpLW1hcGJveCIsImEiOiJja2tzZnFiM3Mwa3hqMnBwNjlnNDRzcjVvIn0.sFB7gJQHB8UXvJAouJ6AqA';
+    map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/sdi-mapbox/ckkyh0jxx64xw18plif4sqy5v',
+        center: [-85.675, 42.966],
+        zoom: 14.8,
+        minZoom: 12,
+        maxZoom: 17.5,
+    })
+    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    map.on('load', function() {
+        map.addSource('alex', {
+            type: 'vector',
+            url: 'mapbox://sdi-mapbox.ckkygbuz10pk020mncel63szs-34dmy',
+        });
+        map.addLayer({
+            'id': 'autonomy-layer',
+            'type': 'line',
+            "source": grandrapidsTilesetSrc,
+            "source-layer": grandrapidsLayer,
+            'paint': { // https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions-step
+                'line-width': [
+                    'interpolate',
+                    ['linear'],
+                    ['zoom'],
+                    15, 5, // zoom level, linewidth
+                    17, 7 // zoom level, linewidth
+                ],
+                'line-color': setColorExpression(data)
+            },
+        })
+    })
+    // setup popup
+    map.on('click', 'autonomy-layer', function(e) {
+        const coordinates = e.lngLat;
+        const properties = e.features[0].properties
+        new mapboxgl.Popup()
+            .setLngLat(coordinates)
+            .setHTML(createToolTipTable(properties))
+            .addTo(map);
+        });       
+        // Change the cursor to a pointer when the mouse is over the places layer.
+        map.on('mouseenter', 'autonomy-layer', function() {
+            map.getCanvas().style.cursor = 'pointer';
+        });
+        // Change it back to a pointer when it leaves.
+        map.on('mouseleave', 'autonomy-layer', function() {
+            map.getCanvas().style.cursor = '';
+    });
+    addLegend();
+}
+
+function setColorExpression(data) {
+    let matchExpression = ['match', ['get', 'eid']];
+    for (let [key, row] of data) {
+        matchExpression.push(key, colorScale(row.pct))
+    }
+    matchExpression.push('rgb(0, 0, 0)');
+    return matchExpression
+}
+
+function createToolTipTable(properties) {
+    const segment = properties.eid;
+    if (data.get(segment) === undefined) { // check if segment exists in data
+        return `<table>
+             <tr><td>Segment</td><td align="right">${segment}</td></tr>
+            <tr><td>Name</td><td align="right">${properties.name}</td></tr>
+            </table>`
+        } else {
+        const row = data.get(segment)
+        return `<table>
+            <tr><th>Autonomy Pct</th><th align="right">${d3.format('.0%')(row.pct)}</th></tr>
+            <tr><td>Autonomy Ct</td><td align="right">${row.auto_ct}</td></tr>
+            <tr><td>Healthy Ct</td><td align="right">${row.healthy_ct}</td></tr>
+            <tr><td>Segment</td><td align="right">${segment}</td></tr>
+            <tr><td>Name</td><td align="right">${properties.name}</td></tr>
+            </table>`
+    }
+}
+
+function addLegend() {
+    // Setup our svg layer that we can manipulate with d3
+    let svg = d3.select(".map-overlay").append("svg")
+        .attr("id", "mapbox-legend")
+
+    const xoffset = 5;
+    const yoffset = 5;
+    const swatchWidth = 20;
+    const swatchHeight = swatchWidth;
+    const N = colorScale.domain().length;
+
+    legend = svg.append('g')
+        .attr('class', 'discrete')
+        .attr('transform', `translate(0, 20)`)
+    
+    // add swatches
+    legend.selectAll(".rect")
+      .data(colorScale.range())
+      .join("rect")
+        .attr('class','swatch')
+        .attr('x', xoffset)
+        .attr('y', (d, i) => (N - i) * swatchHeight + yoffset)
+        .attr('width', swatchWidth)
+        .attr('height', swatchHeight)
+        .style('fill', d => d)
+        .style('fill-opacity', 1)
+
+    // add labels
+    legend.selectAll('text')
+      .data([0, ...colorScale.domain()])
+      .join('text')
+        .attr('class', 'swatch-label')
+        .attr('x', swatchWidth + 6 + xoffset)
+        .attr('y', (d,i) => (N - i) * swatchHeight + swatchHeight / 2 + yoffset)
+        .attr('dy', '.35em')
+        .style('stroke', 'purple')
+        .style('font-size', '1em')
+        .text((d, i, arr) => LegendText(d, i, arr));
+
+    // add title
+    legend.append("text")
+        .attr("class", "legend-headway-title")
+        .attr("x", 0)
+        .attr("y", 0)
+        .text((_, i) => i === 0 ? "Autonomy Pct" : "");
+
+    function LegendText(d, i, arr) {
+        const numFmt = d3.format(',')
+        return i < arr.length - 1 ? `${numFmt(d*100)} - ${numFmt(arr[i+1].__data__ * 100)}` : `${numFmt(d*100)} - 100`
+    }
+}
+//map.setPaintProperty(layerId, 'line-color', scale)
+initMap();
+</script>
+</body>
