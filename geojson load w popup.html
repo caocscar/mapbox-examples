@@ -24,7 +24,7 @@ async function initMap() {
     const data = await d3.csv('http://dashboard-api.sandbox.maymobility.com/autonomy?start_date=2021-01-01', d3.autoType);
     const geojsonData = GeoJSON.parse(data, {Point:['lat', 'lng']})
     
-    mapboxgl.accessToken = 'pk.eyJ1Ijoic2RpLW1hcGJveCIsImEiOiJja2tzZnFiM3Mwa3hqMnBwNjlnNDRzcjVvIn0.sFB7gJQHB8UXvJAouJ6AqA';
+    mapboxgl.accessToken = 'pk.eyJ1IjoiY2FvYSIsImEiOiJjazFncHJqZzYwMXkyM2hxcWp6d2hucTk1In0.5Z7Nmggo79voVuNvU2i7sQ';
     map = new mapboxgl.Map({
         container: 'map',
         style: 'mapbox://styles/mapbox/light-v10',

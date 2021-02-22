@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Create and style clusters</title>
+<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+<link href="https://api.mapbox.com/mapbox-gl-js/v2.1.1/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.1.1/mapbox-gl.js"></script>
+<style>
+body { margin: 0; padding: 0; }
+#map { position: absolute; top: 0; bottom: 0; width: 100%; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<script>
+    mapboxgl.accessToken = 'pk.eyJ1IjoiY2FvYSIsImEiOiJjazFncHJqZzYwMXkyM2hxcWp6d2hucTk1In0.5Z7Nmggo79voVuNvU2i7sQ';
+    map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/dark-v10',
+        center: [-95.616, 35.396],
+        zoom: 3.8,
+        minZoom: 3
+    });
+
+
+    map.on('load', function () {
+        // Add a new source from our GeoJSON data and
+        // set the 'cluster' option to true. GL-JS will
+        // add the point_count property to your source data.
+        sourcename = 'earthquakes';
+        map.addSource(sourcename, {
+            type: 'geojson',
+            data: 'https://docs.mapbox.com/mapbox-gl-js/assets/earthquakes.geojson',
+            cluster: true,
+            clusterMaxZoom: 15, // Max zoom to cluster points on
+            clusterRadius: 50 // Radius of each cluster when clustering points (defaults to 50)
+        });
+
+        thresholds = [10, 100];
+        map.addLayer({
+            id: 'clusters',
+            type: 'circle',
+            source: sourcename,
+            filter: ['has', 'point_count'],
+            paint: {
+                'circle-color': [
+                    'step',
+                    ['get', 'point_count'],
+                    '#fb6a4a',
+                    thresholds[0],
+                    '#de2d26',
+                    thresholds[1],
+                    '#a50f15'
+                ],
+                'circle-radius': [
+                    'step',
+                    ['get', 'point_count'],
+                    10+2,
+                    thresholds[0],
+                    20+2,
+                    thresholds[1],
+                    30+2
+                ]
+            }
+        });
+
+        map.addLayer({
+            id: 'cluster-count',
+            type: 'symbol',
+            source: sourcename,
+            filter: ['has', 'point_count'],
+            layout: {
+                'text-field': '{point_count_abbreviated}',
+                'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+                'text-size': [
+                    'step',
+                    ['get', 'point_count'],
+                    14,
+                    thresholds[0],
+                    19,
+                    thresholds[1],
+                    24
+                ]
+            }
+        });
+
+        map.addLayer({
+            id: 'unclustered-point',
+            type: 'circle',
+            source: sourcename,
+            filter: ['!', ['has', 'point_count']],
+            paint: {
+                'circle-color': 'limegreen',
+                'circle-radius': 5,
+                'circle-stroke-width': 2.5,
+                'circle-stroke-color': 'white'
+            }
+        });
+
+        // inspect a cluster on click
+        map.on('click', 'clusters', function (e) {
+            let features = map.queryRenderedFeatures(e.point, {
+                layers: ['clusters']
+            });
+            let clusterId = features[0].properties.cluster_id;
+            map.getSource(sourcename).getClusterExpansionZoom(
+                clusterId,
+                function (err, zoom) {
+                    if (err) return;
+                    map.easeTo({
+                        center: features[0].geometry.coordinates,
+                        zoom: zoom
+                    });
+                }
+            );
+        });
+
+        // When a click event occurs on a feature in
+        // the unclustered-point layer, open a popup at
+        // the location of the feature, with
+        // description HTML from its properties.
+        map.on('click', 'unclustered-point', function (e) {
+            let coordinates = e.features[0].geometry.coordinates.slice();
+            let mag = e.features[0].properties.mag;
+            let tsunami = e.features[0].properties.tsunami === 1 ? 'yes' : 'no';
+            let text = `magnitude: ${mag}<br>Was there a tsunami?: ${tsunami}`;
+            new mapboxgl.Popup()
+                .setLngLat(coordinates)
+                .setHTML(text)
+                .addTo(map);
+        });
+
+        map.on('mouseenter', 'clusters', function () {
+            map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', 'clusters', function () {
+            map.getCanvas().style.cursor = '';
+        });
+    });
+</script>
+
+</body>
+</html>
