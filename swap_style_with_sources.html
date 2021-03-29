@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8' />
+    <title></title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.1.1/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.1.1/mapbox-gl.js"></script>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="cluster.js"></script>
+    <style>
+    body {
+        margin: 0;
+        padding: 0;
+    }    
+    #map {
+        position: absolute;
+        top: 0px;
+        bottom: 0;
+        width: 100%;
+    }
+    #menu {
+        position: absolute;
+        background: #abc;
+        padding: 10px;
+        font-family: 'Open Sans', sans-serif;
+    }
+    .basemap {
+        cursor: pointer;
+    }
+    </style>
+</head>
+<body>
+    <div id='map'></div>
+    <div id='menu'>
+      <ul>
+        <li id='streets' class="basemap">streets</li>
+        <li id='satellite' class="basemap">satellite</li>
+      </ul>
+    </div>
+    <script>
+    mapboxgl.accessToken = 'pk.eyJ1Ijoic2RpLW1hcGJveCIsImEiOiJja2tzZnFiM3Mwa3hqMnBwNjlnNDRzcjVvIn0.sFB7gJQHB8UXvJAouJ6AqA';
+    let map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/streets-v11',
+        center: [-85.6765, 42.9656],
+        zoom: 14.8,
+    });
+
+    const grandrapidsTilesetSrc = {
+        type: 'vector',
+        url: 'mapbox://sdi-mapbox.ckkygbuz10pk020mncel63szs-34dmy',
+    }
+    const grandrapidsLayer = "GrandRapidsRoute"
+    const thresholds = [3, 5];
+    const circleRadius = [10, 15, 20];
+    const colorScheme = ["#369040", "#98c91f"];
+    const intervPts = pts;
+    const initVisibility = "visible";
+    const sourcename = "interventions";
+    const interventions = {
+        type: 'geojson',
+        data: intervPts,
+        cluster: true,
+        clusterMaxZoom: 18, // Max zoom to cluster points on
+        clusterRadius: 50 // Radius of each cluster when clustering points (defaults to 50)
+    };    
+
+    let customLayers = [{
+        source: grandrapidsTilesetSrc,
+        layer: {
+            "id": 'autonomy-layer',
+            "type": 'line',
+            "source": grandrapidsTilesetSrc,
+            "source-layer": grandrapidsLayer,
+            "layout": { "visibility": "visible" },
+            "paint": { // https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions-step
+                'line-width': [
+                    'interpolate',
+                    ['linear'],
+                    ['zoom'],
+                    15, 5, // zoom level, linewidth
+                    17, 7 // zoom level, linewidth
+                ],
+                'line-color': "purple"
+            },
+        }
+    },{
+        source: interventions,
+        layer: {
+            id: 'clusters',
+            type: 'circle',
+            source: sourcename,
+            filter: ['has', 'point_count'],
+            layout: { "visibility": initVisibility },
+            paint: {
+                'circle-color': "yellow",
+                'circle-radius': [
+                    'step',
+                    ['get', 'point_count'],
+                    circleRadius[0],
+                    thresholds[0],
+                    circleRadius[1],
+                    thresholds[1],
+                    circleRadius[2]
+                ]
+            }
+        }
+    },{
+        source: interventions,
+        layer: {
+            id: 'cluster-count',
+            type: 'symbol',
+            source: sourcename,
+            filter: ['has', 'point_count'],
+            layout: {
+                "visibility": initVisibility,
+                'text-field': '{point_count_abbreviated}',
+                'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+                'text-size': [
+                    'step',
+                    ['get', 'point_count'],
+                    14,
+                    thresholds[0],
+                    19,
+                    thresholds[1],
+                    24
+                ]
+            }
+        }
+    },{
+        source: interventions,
+        layer: {
+            id: 'unclustered-point',
+            type: 'circle',
+            source: sourcename,
+            filter: ['!', ['has', 'point_count']],
+            layout: { "visibility": initVisibility },
+            paint: {
+                'circle-color': [
+                    "match",
+                    ["get", "disengagement"],
+                    "non-disengagement", colorScheme[0],
+                    "disengagement", colorScheme[1],
+                    'orange'
+                ],
+                'circle-radius': 6,
+                'circle-stroke-width': 1.5,
+                'circle-stroke-color': '#ddd'
+            }
+        }
+    }];
+
+    map.on('style.load', function() {
+        // Always add the same custom sources and layers after a style change        
+        for (let me of customLayers) {
+            if (map.getSource(me.layer.source) == undefined) {
+                map.addSource(me.layer.source, me.source);
+            }
+            map.addLayer(me.layer);
+        }
+    });
+    // inspect a cluster on click
+    map.on('click', 'clusters', function(e) {
+        let features = map.queryRenderedFeatures(e.point, {
+            layers: ['clusters']
+        });
+        let clusterId = features[0].properties.cluster_id;
+        map.getSource(sourcename).getClusterExpansionZoom(
+            clusterId,
+            function (err, zoom) {
+                if (err) return;
+                map.easeTo({
+                    center: features[0].geometry.coordinates,
+                    zoom: zoom
+                });
+            }
+        );
+    });
+
+    function switchLayer(layerId) {
+        const style = layerId === "satellite" ? 'mapbox/satellite-v9' : 'sdi-mapbox/ckljmydtx12aj17p7nwxws7ct';
+        map.setStyle(`mapbox://styles/${style}`);
+    }
+
+    const basemaps = ['streets', 'satellite'];
+    for (let basemap of basemaps) {
+        d3.selectAll(`#${basemap}`).on('click', function() {
+            switchLayer(this.id);
+        })
+    }
+
+    </script>
+</body>
+
+</html>

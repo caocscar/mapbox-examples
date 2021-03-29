@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset='utf-8' />
+  <title>Autonomy Map</title>
+  <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+  <!-- Mapbox GL JS-->
+  <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v2.1.0/mapbox-gl.js'></script>
+  <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v2.1.0/mapbox-gl.css' rel='stylesheet' />
+  <!-- GeoJSON -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/geojson/0.5.0/geojson.min.js"></script>
+  <!-- d3 utilities -->
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+
+  <style>
+    body { margin:0; padding:0; }
+    #map { position:absolute; top:0; bottom:0; width:100%; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+async function initMap() {
+    geojsonData = {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "properties": {'segment_id': 1, 'pct': 0.8},
+            "geometry": {
+              "type": "Point",
+              "coordinates": [-85.675, 42.965]
+            }
+          },
+          {
+            "type": "Feature",
+            "properties": {'segment_id': 2, 'pct': 0.67},
+            "geometry": {
+              "type": "Point",
+              "coordinates": [-85.678, 42.964]
+            }
+          }
+        ]
+      }    
+    mapboxgl.accessToken = 'pk.eyJ1IjoiY2FvYSIsImEiOiJjazFncHJqZzYwMXkyM2hxcWp6d2hucTk1In0.5Z7Nmggo79voVuNvU2i7sQ';
+    map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/light-v10',
+        center: [-85.675, 42.965],
+        zoom: 14.8,
+        minZoom: 12,
+        maxZoom: 17.5,
+    })
+    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    const colorScheme = ['#c7e9c0','#a1d99b','#74c476','#31a354','#006d2c']
+    map.on('style.load', function() {
+        map.addSource('autonomy', {
+            'type': 'geojson',
+            'data': geojsonData,
+        })
+        map.addLayer({
+            'id': 'autonomy-layer',
+            'type': 'circle',
+            'source': 'autonomy',
+            'paint': {
+                'circle-radius': [
+                    'interpolate',
+                    ['linear'],
+                    ['zoom'],
+                    14, 10, // zoom level, radius
+                    18, 20 // zoom level, radius
+                ],
+                // https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions-step
+                'circle-color': "black"
+            },
+        })
+        // When a click event occurs on a feature in the places layer, open a popup at the
+        // location of the feature, with description HTML from its properties.
+        map.on('click', 'autonomy-layer', function(e) {
+            const coordinates = e.features[0].geometry.coordinates.slice();
+            const properties = e.features[0].properties;          
+            let popup = new mapboxgl.Popup()
+                .setLngLat(coordinates)
+                .setHTML(createPoupupTable(properties))
+                .addTo(map);
+            // change attribute of clicked feature
+            map.setPaintProperty('autonomy-layer', 'circle-color', setExpression(properties.segment_id));
+            // assign function to reset attribute upon closing popup
+            d3.select('.mapboxgl-popup-close-button')
+                .on('click', function() {
+                    map.setPaintProperty('autonomy-layer', 'circle-color', 'black');
+                    d3.select('.mapboxgl-popup').remove()
+                });
+        });
+    })
+}
+
+function setExpression(segmentId, sz='yellow') {
+    let matchExpression = ['match', ['get', 'segment_id']];
+    matchExpression.push(segmentId, sz);
+    matchExpression.push('black'); // line segments w/ no data
+    return matchExpression
+}
+
+function setStyleCursor() {
+    // Change the cursor to a pointer when the mouse is over the places layer.
+    map.on('mouseenter', 'autonomy-layer', function() {
+        map.getCanvas().style.cursor = 'pointer';
+    });        
+    // Change it back to a pointer when it leaves.
+    map.on('mouseleave', 'autonomy-layer', function() {
+        map.getCanvas().style.cursor = '';
+    });
+}
+
+function createPoupupTable(properties) {
+    return `<table>
+        <tr><th>Autonomy Pct</th><th align="right">${d3.format('.0%')(properties.pct)}</th></tr>
+        <tr><td>Segment</td><td align="right">${properties.segment_id}</td></tr>
+        </table>`
+}
+
+initMap();
+</script>
+</body>
+
+<!-- function setPopupAutonomyLayer() {
+    map.on('click', 'autonomy-layer', function(e) {
+        const feature = e.features[0];
+        const linewidth = e.features[0].layer.paint['line-width'];
+        const coordinates = e.lngLat;
+        const properties = e.features[0].properties;
+        const segment = properties.segment_id
+        popup = new mapboxgl.Popup()
+            .setLngLat(coordinates)
+            .setHTML(createPopupHeatmap(properties))
+            .addTo(map);
+        // reset line-width upon close        
+        popup.on('close', function(e) {
+            let segment = parseInt(d3.select(this._content).select("#segment-id").text());            
+            map.setPaintProperty('autonomy-layer', 'line-width', setLinewidthExpression(segment, 5, 5));
+        })
+        map.setPaintProperty('autonomy-layer', 'line-width', setLinewidthExpression(feature, 10, linewidth));
+    });
+
+} -->

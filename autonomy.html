@@ -16,7 +16,7 @@
   <style>
     body { margin:0; padding:0; }
     #map {
-        position: absolute;
+        position: relative;
         top: 50px; 
         left: 50px; 
         width: 95%;
@@ -27,10 +27,10 @@
         opacity: 0.85;
     }
     .map-overlay {
-        /* background-color: #eee; */
-        /* opacity: 0.85; */
+        background-color: #eee;
+        opacity: 0.85;
         position: absolute;
-        width: 100%;
+        width: 110px;
         top: 50px;
         left: 50px;
         padding: 10px;
@@ -50,40 +50,36 @@ const colorScale = d3.scaleThreshold()
         .domain([0.1, 0.5, 0.6, 0.7, 0.8])
         .range(['black', '#c7e9c0','#a1d99b','#74c476','#31a354','#006d2c'])
         //.range(['black', '#dadaeb','#bcbddc','#9e9ac8','#756bb1','#54278f'])
-const grandrapidsTilesetSrc = {
+const tilesetSrc = {
     type: 'vector',
-    url: 'mapbox://sdi-mapbox.ckkygbuz10pk020mncel63szs-34dmy',
+    url: 'mapbox://sdi-mapbox.ckme5z5al3t7k20pb5qkda3nz-72ke0',
 }
-const grandrapidsLayer = 'GrandRapidsRoute'
+const layerName = 'Arlington_Route_ODS_Autonomy_Hea'
 
 async function getData() {
-    data = await d3.csv('http://dashboard-api.sandbox.maymobility.com/autonomy?start_date=2021-01-01', d3.autoType);
+    data = await d3.csv('http://dashboard-api.sandbox.maymobility.com/autonomy/edges?start_date=2021-01-01', d3.autoType);
     data = d3.index(data, d => d.segment);
 }
 
 function initMap() {
-    getData();
-    mapboxgl.accessToken = 'pk.eyJ1IjoiY2FvYSIsImEiOiJjazFncHJqZzYwMXkyM2hxcWp6d2hucTk1In0.5Z7Nmggo79voVuNvU2i7sQ';
+    //getData();
+    mapboxgl.accessToken = 'pk.eyJ1Ijoic2RpLW1hcGJveCIsImEiOiJja2tzZnFiM3Mwa3hqMnBwNjlnNDRzcjVvIn0.sFB7gJQHB8UXvJAouJ6AqA';
     map = new mapboxgl.Map({
         container: 'map',
         style: 'mapbox://styles/sdi-mapbox/ckkyh0jxx64xw18plif4sqy5v',
-        center: [-85.675, 42.966],
-        zoom: 14.8,
+        center: [-97.115, 32.732],
+        zoom: 14.5,
         minZoom: 12,
         maxZoom: 17.5,
     })
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
     map.on('load', function() {
-        map.addSource('alex', {
-            type: 'vector',
-            url: 'mapbox://sdi-mapbox.ckkygbuz10pk020mncel63szs-34dmy',
-        });
         map.addLayer({
             'id': 'autonomy-layer',
             'type': 'line',
-            "source": grandrapidsTilesetSrc,
-            "source-layer": grandrapidsLayer,
+            "source": tilesetSrc,
+            "source-layer": layerName,
             'paint': { // https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions-step
                 'line-width': [
                     'interpolate',
@@ -92,10 +88,15 @@ function initMap() {
                     15, 5, // zoom level, linewidth
                     17, 7 // zoom level, linewidth
                 ],
-                'line-color': setColorExpression(data)
+                'line-color': 'green' // setColorExpression(data)
             },
         })
     })
+    addPopup();
+    addLegend();
+}
+
+function addPopup() {
     // setup popup
     map.on('click', 'autonomy-layer', function(e) {
         const coordinates = e.lngLat;
@@ -104,16 +105,15 @@ function initMap() {
             .setLngLat(coordinates)
             .setHTML(createToolTipTable(properties))
             .addTo(map);
-        });       
-        // Change the cursor to a pointer when the mouse is over the places layer.
-        map.on('mouseenter', 'autonomy-layer', function() {
-            map.getCanvas().style.cursor = 'pointer';
-        });
-        // Change it back to a pointer when it leaves.
-        map.on('mouseleave', 'autonomy-layer', function() {
-            map.getCanvas().style.cursor = '';
+    });       
+    // Change the cursor to a pointer when the mouse is over the places layer.
+    map.on('mouseenter', 'autonomy-layer', function() {
+        map.getCanvas().style.cursor = 'pointer';
     });
-    addLegend();
+    // Change it back to a pointer when it leaves.
+    map.on('mouseleave', 'autonomy-layer', function() {
+        map.getCanvas().style.cursor = '';
+    });
 }
 
 function setColorExpression(data) {
