@@ -53,12 +53,12 @@ async function initMap() {
     })
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    const colorScheme = ['#c7e9c0','#a1d99b','#74c476','#31a354','#006d2c']
+    const colorScheme = ['#c7e9c0','#a1d99b','#74c476','#31a354','#006d2c'];
     map.on('style.load', function() {
         map.addSource('autonomy', {
             'type': 'geojson',
             'data': geojsonData,
-        })
+        });
         map.addLayer({
             'id': 'autonomy-layer',
             'type': 'circle',
@@ -74,26 +74,33 @@ async function initMap() {
                 // https://docs.mapbox.com/mapbox-gl-js/style-spec/#expressions-step
                 'circle-color': "black"
             },
-        })
-        // When a click event occurs on a feature in the places layer, open a popup at the
+        });
+        // When a click event occurs on a feature in the layer, open a popup at the
         // location of the feature, with description HTML from its properties.
         map.on('click', 'autonomy-layer', function(e) {
             const coordinates = e.features[0].geometry.coordinates.slice();
-            const properties = e.features[0].properties;          
+            const properties = e.features[0].properties;
             let popup = new mapboxgl.Popup()
                 .setLngLat(coordinates)
                 .setHTML(createPoupupTable(properties))
                 .addTo(map);
             // change attribute of clicked feature
             map.setPaintProperty('autonomy-layer', 'circle-color', setExpression(properties.segment_id));
-            // assign function to reset attribute upon closing popup
-            d3.select('.mapboxgl-popup-close-button')
+            // reset attribute upon closing popup
+            d3.selectAll('.mapboxgl-popup-close-button')
                 .on('click', function() {
-                    map.setPaintProperty('autonomy-layer', 'circle-color', 'black');
-                    d3.select('.mapboxgl-popup').remove()
+                    resetMarkerLayer();
+                    d3.select('.mapboxgl-popup').remove();
                 });
+            // reset attribute upon click outside layer
+            d3.select('canvas.mapboxgl-canvas')
+                .on('click', resetMarkerLayer);
         });
     })
+}
+
+function resetMarkerLayer() {
+    map.setPaintProperty('autonomy-layer', 'circle-color', 'black');
 }
 
 function setExpression(segmentId, sz='yellow') {
@@ -107,7 +114,7 @@ function setStyleCursor() {
     // Change the cursor to a pointer when the mouse is over the places layer.
     map.on('mouseenter', 'autonomy-layer', function() {
         map.getCanvas().style.cursor = 'pointer';
-    });        
+    });
     // Change it back to a pointer when it leaves.
     map.on('mouseleave', 'autonomy-layer', function() {
         map.getCanvas().style.cursor = '';
